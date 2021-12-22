@@ -2280,6 +2280,18 @@ class LevelsTab(Tab):
             if not lvl_in_use:
                 tree.insert("", "end", text=str(lvl_name), image=self.lvl_icon(False))
 
+        has_added_header = False
+        for filepath in glob.iglob(str(lvl_dir) + "/***.lvl"):
+            path_in_str = str(filepath)
+            lvl_name = os.path.basename(os.path.normpath(path_in_str))
+            if not (defaults_path / lvl_name).exists():
+                if not has_added_header:
+                    has_added_header = True
+                    tree.insert("", "end", text="")
+                    tree.insert("", "end", text="[Custom_Levels]")
+
+                tree.insert("", "end", text=str(lvl_name), image=self.lvl_icon(True))
+
     def load_pack_custom_lvls(self, tree, lvl_dir, selected_lvl=None):
         self.reset()
         self.lvls_path = Path(lvl_dir)
@@ -2682,6 +2694,9 @@ class LevelsTab(Tab):
         elif item_text == "[Create_New_Level]":
             logger.debug("Creating new level")
             self.create_level_dialog(tree)
+        elif item_text == "" or item_text == "[Custom_Levels]":
+            # Do nothing for these.
+            pass
         elif tree.heading("#0")["text"] == "Select Pack":
             for item in tree.selection():
                 self.last_selected_file = item
