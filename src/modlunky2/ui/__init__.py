@@ -25,6 +25,7 @@ from modlunky2.ui.install import InstallTab
 from modlunky2.ui.logs import QueueHandler, register_queue_handler
 from modlunky2.ui.error import ErrorTab
 from modlunky2.ui.websocket import WebSocketThread
+from modlunky2.ui.seed_finder import SeedFinderTab
 
 if is_windows():
     from modlunky2.ui.trackers import TrackersTab
@@ -223,6 +224,12 @@ class ModlunkyUI:
                 tab_control=self.tab_control,
                 ml_config=modlunky_config,
             )
+        self.register_tab(
+            "Seed Finder",
+            SeedFinderTab,
+            tab_control=self.tab_control,
+            ml_config=modlunky_config,
+        )
         self.register_tab(
             "Settings",
             SettingsTab,
