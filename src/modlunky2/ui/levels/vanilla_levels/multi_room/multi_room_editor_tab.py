@@ -181,20 +181,22 @@ class MultiRoomEditorTab(ttk.Frame):
         self.room_templates = room_templates
 
         self.template_draw_map = find_roommap(room_templates)
-        self.canvas.grid_remove()
+        # self.canvas.grid_remove()
 
-        self.canvas = MultiCanvasContainer(
-            self.editor_container,
-            self.textures_dir,
-            ["Foreground", "Background"],
-            [room.name for room in self.template_draw_map],
-            self.zoom_level,
-            self.canvas_click,
-            self.canvas_shiftclick,
-            intro_text="Select a level file to begin viewing",
-            vertical=True,
-        )
-        self.canvas.grid(row=0, column=0, columnspan=3, rowspan=2, sticky="news")
+        self.canvas.update_canvas_titles([room.name for room in self.template_draw_map])
+
+        # self.canvas = MultiCanvasContainer(
+        #     self.editor_container,
+        #     self.textures_dir,
+        #     ["Foreground", "Background"],
+        #     [room.name for room in self.template_draw_map],
+        #     self.zoom_level,
+        #     self.canvas_click,
+        #     self.canvas_shiftclick,
+        #     intro_text="Select a level file to begin viewing",
+        #     vertical=True,
+        # )
+        # self.canvas.grid(row=0, column=0, columnspan=3, rowspan=2, sticky="news")
         self.canvas.show_intro()
         self.canvas.clear()
         self.show_intro()

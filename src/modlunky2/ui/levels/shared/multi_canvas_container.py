@@ -32,6 +32,9 @@ class MultiCanvasContainer(tk.Frame):
 
         self.on_click = on_click
         self.on_shiftclick = on_shiftclick
+        self.vertical = vertical
+        self.zoom_level = zoom_level
+        self.textures_dir = textures_dir
 
         self.columnconfigure(1, weight=1)
         self.rowconfigure(1, weight=1)
@@ -48,6 +51,7 @@ class MultiCanvasContainer(tk.Frame):
 
         scrollable_frame = tk.Frame(scrollable_canvas, bg="#343434")
         scrollable_frame.grid(row=0, column=0, sticky="nswe")
+        self.scrollable_frame = scrollable_frame
 
         width = scrollable_canvas.winfo_screenwidth()
         height = scrollable_canvas.winfo_screenheight()
@@ -58,27 +62,31 @@ class MultiCanvasContainer(tk.Frame):
         )
         scrollable_canvas["width"] = width
         scrollable_canvas["height"] = height
+        self.w = width
+        self.h = height
 
-        scrollable_frame.columnconfigure(0, minsize=int(int(width) / 2))
-        scrollable_frame.columnconfigure(1, weight=1)
-        canvas_gaps = len(canvas_titles) - 1
-        for column in range(canvas_gaps):
-            if vertical:
-                scrollable_frame.rowconfigure((column + 1) * 2, minsize=50)
-            else:
-                scrollable_frame.columnconfigure((column + 1) * 2, minsize=50)
-        scrollable_frame.columnconfigure(
-            (canvas_gaps + 1) * 2 if not vertical else 4, minsize=int(int(width) / 2)
-        )
-        scrollable_frame.rowconfigure(0, minsize=int(int(height) / 2))
-        scrollable_frame.rowconfigure(1, weight=1)
-        if not vertical:
-            scrollable_frame.rowconfigure(2, minsize=100)
         if vertical:
+            scrollable_frame.columnconfigure(0, minsize=int(int(width) / 2))
+            scrollable_frame.columnconfigure(1, weight=1)
+            canvas_gaps = len(canvas_titles) - 1
+            for column in range(canvas_gaps):
+                scrollable_frame.rowconfigure((column + 1) * 2, minsize=50)
+            scrollable_frame.columnconfigure(4, minsize=int(int(width) / 2))
+            scrollable_frame.rowconfigure(0, minsize=int(int(height) / 2))
+            scrollable_frame.rowconfigure(1, weight=1)
             scrollable_frame.rowconfigure((canvas_gaps + 1) * 2, minsize=50)
-        scrollable_frame.rowconfigure(
-            (canvas_gaps + 1) * 2 + 1 if vertical else 4, minsize=int(int(height) / 2)
-        )
+            scrollable_frame.rowconfigure((canvas_gaps + 1) * 2 + 1, minsize=int(int(height) / 2))
+        else:
+            scrollable_frame.columnconfigure(0, minsize=int(int(width) / 2))
+            scrollable_frame.columnconfigure(1, weight=1)
+            canvas_gaps = len(canvas_titles) - 1
+            for column in range(canvas_gaps):
+                scrollable_frame.columnconfigure((column + 1) * 2, minsize=50)
+            scrollable_frame.columnconfigure((canvas_gaps + 1) * 2, minsize=int(int(width) / 2))
+            scrollable_frame.rowconfigure(0, minsize=int(int(height) / 2))
+            scrollable_frame.rowconfigure(1, weight=1)
+            scrollable_frame.rowconfigure(2, minsize=100)
+            scrollable_frame.rowconfigure(4, minsize=int(int(height) / 2))
 
         # Scroll bars for scrolling the canvases.
         hbar = ttk.Scrollbar(self, orient="horizontal", command=scrollable_canvas.xview)
@@ -162,7 +170,7 @@ class MultiCanvasContainer(tk.Frame):
                     new_canvas.grid_remove()
                 tab_canvases.append(new_canvas)
 
-                if len(canvas_titles) > 1:
+                if len(canvas_titles) > 1 and tab_index == 0:
                     label = tk.Label(
                         scrollable_frame,
                         text=canvas_title,
@@ -250,6 +258,101 @@ class MultiCanvasContainer(tk.Frame):
         else:
             canvas.unbind_all("<Button-4>")
             canvas.unbind_all("<Button-5>")
+
+    def update_canvas_titles(self, new_titles):
+        old_canvases = self.canvases
+        new_canvases = []
+        for canvases in self.canvases:
+            new_tab_of_canvases = []
+            for canvas_index, canvas in enumerate(canvases):
+                if canvas_index >= len(new_titles):
+                    canvas.grid_remove()
+                    if self.vertical:
+                        self.scrollable_frame.rowconfigure((canvas_index + 1) * 2, minsize=0)
+                    elif canvas_index < len(canvases):
+                        self.scrollable_frame.columnconfigure((canvas_index + 1) * 2, minsize=0)
+                else:
+                    new_tab_of_canvases.append(canvas)
+            new_canvases.append(new_tab_of_canvases)
+
+
+        old_labels = self.labels
+        new_labels = []
+        for label_index, label in enumerate(old_labels):
+            label.grid_remove()
+            if label_index < len(new_titles):
+                new_labels.append(label)
+
+        for canvas_index, canvas_title in enumerate(new_titles):
+            for tab_index, canvases in enumerate(new_canvases):
+                if len(canvases) <= canvas_index:
+                    new_canvas = LevelCanvas(
+                        self.scrollable_frame,
+                        self.textures_dir,
+                        self.zoom_level,
+                        self.on_click and (
+                            lambda row, column, is_primary, i=CanvasIndex(tab_index, canvas_index): self.on_click(i, row, column, is_primary)
+                        ),
+                        self.on_shiftclick and (
+                            lambda row, column, is_primary, i=CanvasIndex(tab_index, canvas_index): self.on_shiftclick(i, row, column, is_primary)
+                        ),
+                        bg="#343434",
+                    )
+                    if self.vertical:
+                        new_canvas.grid(row=canvas_index * 2 + 1, column=1, sticky="sw")
+                    else:
+                        new_canvas.grid(row=1, column=canvas_index * 2 + 1, sticky="sw")
+                    if tab_index != int(self.switch_variable.get()):
+                        new_canvas.grid_remove()
+                    canvases.append(new_canvas)
+                if canvas_index in self.hidden_canvases:
+                    canvases[canvas_index].grid_remove()
+                elif tab_index != int(self.switch_variable.get()):
+                    canvases[canvas_index].grid_remove()
+                else:
+                    canvases[canvas_index].grid()
+
+            if len(new_labels) > canvas_index:
+                if canvas_index in self.hidden_canvases:
+                    new_labels[canvas_index].grid_remove()
+                else:
+                    new_labels[canvas_index].grid()
+            else:
+                label = tk.Label(
+                    self.scrollable_frame,
+                    text=canvas_title,
+                    fg="white",
+                    bg="#343434",
+                )
+                if self.vertical:
+                    label.grid(row=(canvas_index + 1) * 2, column=1, sticky="nw")
+                else:
+                    label.grid(row=2, column=canvas_index * 2 + 1, sticky="news")
+                new_labels.append(label)
+                if canvas_index in self.hidden_canvases:
+                    label.grid_remove()
+
+        self.canvases = new_canvases
+        self.labels = new_labels
+
+
+        if self.vertical:
+            self.rowconfigure(len(old_canvases[0]) * 2, minsize=0)
+            self.rowconfigure(len(old_canvases[0]) * 2 + 1, minsize=0)
+        else:
+            self.columnconfigure(len(old_canvases[0]) * 2, minsize=0)
+        canvas_gaps = len(new_titles) - 1
+        for column in range(canvas_gaps):
+            if self.vertical:
+                self.scrollable_frame.rowconfigure((column + 1) * 2, minsize=50)
+            else:
+                self.scrollable_frame.columnconfigure((column + 1) * 2, minsize=50)
+        if self.vertical:
+            self.rowconfigure(len(new_titles) * 2, minsize=50)
+            self.rowconfigure(len(new_titles) * 2 + 1, minsize=int(int(self.w) / 2))
+        else:
+            self.columnconfigure(len(new_titles) * 2, minsize=int(int(self.h) / 2))
+
 
     def replace_tile_at(self, index, row, column, image, offset_x=0, offset_y=0):
         self.canvases[index.tab_index][index.canvas_index].replace_tile_at(
