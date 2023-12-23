@@ -7,13 +7,14 @@ from tkinter import ttk
 
 from modlunky2.config import Config
 from modlunky2.levels.level_templates import TemplateSetting
-from modlunky2.ui.levels.shared.level_canvas import GridRoom
+from modlunky2.ui.levels.shared.level_canvas import GridRoom, CANVAS_MODE
 from modlunky2.ui.levels.shared.multi_canvas_container import (
     MultiCanvasContainer,
     CanvasIndex,
 )
 from modlunky2.ui.levels.shared.palette_panel import PalettePanel
 from modlunky2.ui.levels.shared.setrooms import Setroom, MatchedSetroom
+from modlunky2.ui.levels.shared.tool_select import ToolSelect
 from modlunky2.ui.levels.vanilla_levels.multi_room.options_panel import OptionsPanel
 from modlunky2.ui.levels.vanilla_levels.multi_room.reversed_rooms import REVERSED_ROOMS
 from modlunky2.ui.levels.vanilla_levels.multi_room.room_map import (
@@ -69,6 +70,8 @@ class MultiRoomEditorTab(ttk.Frame):
         self.on_rename_room = on_rename_room
         self.on_delete_room = on_delete_room
 
+        self.tool = CANVAS_MODE.DRAW
+
         self.lvl = None
         self.lvl_biome = None
         self.tile_palette_map = {}
@@ -101,6 +104,7 @@ class MultiRoomEditorTab(ttk.Frame):
             self.zoom_level,
             self.canvas_click,
             self.canvas_shiftclick,
+            self.canvas_fill,
             intro_text="Select a level file to begin viewing",
         )
         self.canvas.grid(row=0, column=0, columnspan=3, rowspan=2, sticky="news")
@@ -130,6 +134,10 @@ class MultiRoomEditorTab(ttk.Frame):
             command=toggle_panel_hidden,
         )
         side_panel_hide_button.grid(column=1, row=0, sticky="nwe")
+        self.side_panel_hide_button = side_panel_hide_button
+
+        self.tool_select_bar = ToolSelect(editor_view, self.select_tool)
+        self.tool_select_bar.grid(row=1, column=1, sticky="ne", pady=10)
 
         side_panel_tab_control = ttk.Notebook(side_panel)
         side_panel_tab_control.grid(row=0, column=0, sticky="nswe")
@@ -224,10 +232,13 @@ class MultiRoomEditorTab(ttk.Frame):
             self.zoom_level,
             self.canvas_click,
             self.canvas_shiftclick,
+            self.canvas_fill,
             intro_text="Select a level file to begin viewing",
             vertical=True,
         )
         self.canvas.grid(row=0, column=0, columnspan=3, rowspan=2, sticky="news")
+        self.side_panel_hide_button.tkraise()
+        self.tool_select_bar.tkraise()
         self.canvas.show_intro()
         self.canvas.clear()
         self.show_intro()
@@ -722,6 +733,10 @@ class MultiRoomEditorTab(ttk.Frame):
             self.lvl,
         )
 
+    def select_tool(self, tool):
+        self.tool = tool
+        self.canvas.set_mode(tool)
+
     def palette_selected_tile(self, tile_name, image, is_primary):
         self.on_select_palette_tile(tile_name, image, is_primary)
 
@@ -856,6 +871,10 @@ class MultiRoomEditorTab(ttk.Frame):
 
         self.palette_panel.select_tile(tile[0], tile[2], is_primary)
         self.on_select_palette_tile(tile[0], tile[2], is_primary)
+
+    def canvas_fill(self, canvas_index, tiles, is_primary):
+        for tile in tiles:
+            self.canvas_click(canvas_index, tile.y, tile.x, is_primary)
 
     # Looks up the expected offset type and tile image size and computes the offset of the tile's anchor in the grid.
     def offset_for_tile(self, tile_name, tile_code, tile_size):
@@ -1007,6 +1026,7 @@ class MultiRoomEditorTab(ttk.Frame):
                             )
 
         self.canvas.update_scroll_region(fresh)
+        self.canvas.set_mode(self.tool)
 
     def template_item_at(self, map_index, row, col):
         for room_row_index, room_row in enumerate(
