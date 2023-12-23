@@ -69,6 +69,24 @@ class ActiveMove:
     last_event_pos: Pos
     grabbing_selections: bool
 
+@dataclass
+class ImageOffset:
+    image: Image
+    offset_x: int
+    offset_y: int
+
+
+@dataclass
+class CopyTile:
+    index: TileIndex
+    image: ImageOffset
+
+@dataclass
+class ActiveCopy:
+    tiles: List[CopyTile]
+    select_rects: [int]
+
+
 
 class LevelCanvas(tk.Canvas):
     def __init__(
@@ -81,6 +99,8 @@ class LevelCanvas(tk.Canvas):
         on_fill,
         on_fill_type,
         on_move,
+        on_copy,
+        on_paste
         *args,
         **kwargs
     ):
@@ -93,10 +113,13 @@ class LevelCanvas(tk.Canvas):
         self.on_fill = on_fill
         self.on_fill_type = on_fill_type
         self.on_move = on_move
+        self.on_copy = on_copy
+        self.on_paste = on_paste
 
         self.mode = CANVAS_MODE.DRAW
 
         self.tile_images = []
+        self.image_offsets = []
         self.grid_hidden = False
         self.rooms_hidden = False
         self.grid_lines = []
@@ -125,6 +148,7 @@ class LevelCanvas(tk.Canvas):
             if self.mode == CANVAS_MODE.DRAW:
                 self.config(cursor="")
 
+
         self.bind_all("<KeyPress-Shift_L>", holding_shift, add="+")
         self.bind_all("<KeyPress-Shift_R>", holding_shift, add="+")
         self.bind_all("<KeyRelease-Shift_L>", shift_up, add="+")
@@ -139,6 +163,10 @@ class LevelCanvas(tk.Canvas):
 
         self.bind_all("<KeyPress- >", holding_space, add="+")
         self.bind_all("<KeyRelease- >", space_up, add="+")
+
+        if on_copy and on_paste:
+            self.bind_all("<Control-c>", self.copy)
+            self.bind_all("<Control-v>", self.paste)
 
         self.select_rects = []
         self.current_select_rect = None
@@ -516,6 +544,31 @@ class LevelCanvas(tk.Canvas):
                 self.move(selection.rect, distx, disty)
         self.active_move = None
 
+    def copy(self, event):
+        if len(self.select_rects) == 0:
+            return
+
+        tiles = []
+        for r in range(self.height):
+            for c in range(self.width):
+                if self.pos_in_selection(r, c):
+                    image = self.image_offsets[r][c]
+
+                    tiles.append(CopyTile(TileIndex(x=c, y=r), image))
+        for tile in tiles:
+            self.tag_raise(tile.image)
+
+        if len(tiles) == 0:
+            return
+
+        pos = Pos(event.x, event.y)
+        self.active_move = ActiveMove(tiles, pos, pos, grabbing_selections)
+
+        self.bring_selections_to_front()
+
+
+    def paste(self, event):
+
     def set_zoom(self, zoom_level):
         self.zoom_level = zoom_level
         self.cached_bgs = {}
@@ -528,6 +581,7 @@ class LevelCanvas(tk.Canvas):
         curr_img = self.tile_images[row][column]
         if curr_img:
             self.delete(curr_img)
+        self.image_offsets[row][column] = ImageOffset(image, offset_x, offset_y)
         self.tile_images[row][column] = self.create_image(
             column * self.zoom_level - offset_x,
             row * self.zoom_level - offset_y,
@@ -543,6 +597,7 @@ class LevelCanvas(tk.Canvas):
         self["width"] = (self.zoom_level * width) - 3
         self["height"] = (self.zoom_level * height) - 3
         self.tile_images = [[None for _ in range(width)] for _ in range(height)]
+        self.image_offsets = [[None for _ in range(width)] for _ in range(height)]
 
     def draw_background(self, theme):
         bg_img = self.cached_bgs.get(theme)
@@ -648,6 +703,7 @@ class LevelCanvas(tk.Canvas):
         self.delete("all")
         self.clear_selections()
         self.tile_images = []
+        self.image_offsets = []
         self.grid_lines = []
         self.room_lines = []
 
